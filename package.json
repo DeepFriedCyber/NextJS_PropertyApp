@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@react-google-maps/api": "^2.20.6",
+    "@supabase/supabase-js": "^2.49.1",
+    "next-auth": "^4.24.11",
+    "openai": "^4.87.3"
+  }
+}

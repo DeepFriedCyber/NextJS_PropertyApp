@@ -1,15 +1,9 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { db } from "@/lib/firebaseClient";
+import { doc, getDoc } from "firebase/firestore";
 import Image from "next/image";
 
-// ✅ Initialize Supabase
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-// ✅ Define Property Type
 interface Property {
   id: string;
   name: string;
@@ -23,45 +17,60 @@ export default function PropertyDetails() {
   const router = useRouter();
   const { id } = router.query;
   const [property, setProperty] = useState<Property | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // ✅ Ensure the router is ready before fetching
   useEffect(() => {
     if (!router.isReady || !id) return;
 
     async function fetchProperty() {
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("id", String(id))
-        .single();
+      try {
+        const propertyRef = doc(db, "properties", String(id));
+        const propertySnap = await getDoc(propertyRef);
 
-      if (error) {
-        console.error("Error fetching property:", error);
-      } else {
-        setProperty(data);
+        if (propertySnap.exists()) {
+          setProperty({ id: propertySnap.id, ...propertySnap.data() } as Property);
+        } else {
+          setError("Property not found");
+        }
+      } catch (err) {
+        console.error("Error fetching property:", err);
+        setError("Failed to load property details");
+      } finally {
+        setLoading(false);
       }
     }
 
     fetchProperty();
-  }, [id, router.isReady]); // ✅ Ensures Next.js has finished loading query params
+  }, [id, router.isReady]);
 
-  if (!property) return <p className="text-center">Loading...</p>;
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+  if (!property) return <div>Property not found</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <Image
-        src={property.imageUrl}
-        alt={property.name}
-        width={800}
-        height={400}
-        className="rounded-lg"
-      />
-      <h1 className="text-3xl font-bold mt-4">{property.name}</h1>
-      <p className="text-lg text-primary font-semibold">
-        ${property.price.toLocaleString()}
-      </p>
-      <p className="text-muted text-sm">{property.location}</p>
-      <p className="mt-4">{property.description}</p>
+      <h1 className="text-3xl font-bold mb-4">{property.name}</h1>
+      {property.imageUrl && (
+        <div className="relative h-[400px] mb-6">
+          <Image
+            src={property.imageUrl}
+            alt={property.name}
+            fill
+            className="object-cover rounded-lg"
+          />
+        </div>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h2 className="text-2xl font-bold">${property.price}</h2>
+          <p className="text-gray-600">{property.location}</p>
+        </div>
+        <div>
+          <h3 className="text-xl font-semibold mb-2">Description</h3>
+          <p className="text-gray-700">{property.description}</p>
+        </div>
+      </div>
     </div>
   );
 }

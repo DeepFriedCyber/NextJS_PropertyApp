@@ -1,14 +1,22 @@
 import NextAuth from "next-auth/next";
-import type { NextAuthOptions, SessionStrategy } from "next-auth";
-import { SupabaseAdapter } from "@auth/supabase-adapter";
+import type { NextAuthOptions, Session as NextAuthSession } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { createClient } from "@supabase/supabase-js";
+import { auth } from "@/lib/firebaseClient";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
-// ✅ Create Supabase Client (with Anon Key)
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY! // ✅ Use the safe key
-);
+// Define a more specific user type
+interface CustomUser {
+  id: string | null;
+  name: string | null;
+  email: string | null;
+  image: string | null;
+}
+
+// Define a more specific session type
+interface Session extends NextAuthSession {
+  user: CustomUser;
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -16,45 +24,62 @@ export const authOptions: NextAuthOptions = {
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "text", placeholder: "you@example.com" },
-        password: { label: "Password", type: "password" },
+        password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req): Promise<any> {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Missing email or password");
         }
 
-        // ✅ Check if user exists
-        const { data: user, error: userError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("email", credentials.email)
-          .single();
+        try {
+          const userCredential = await signInWithEmailAndPassword(
+            auth,
+            credentials.email,
+            credentials.password
+          );
+          
+          const user = userCredential.user;
 
-        if (userError || !user) {
-          throw new Error("No user found with this email.");
+          if (!user) {
+            throw new Error("No user found");
+          }
+
+          // Return the user object that NextAuth expects
+          return {
+            id: user.uid,
+            email: user.email,
+            name: user.displayName,
+            image: user.photoURL
+          };
+        } catch (error) {
+          console.error("Authentication error:", error);
+          throw new Error(error instanceof Error ? error.message : "Authentication failed");
         }
-
-        // ✅ Authenticate with Supabase
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: credentials.email,
-          password: credentials.password,
-        });
-
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        return { id: user.id, email: user.email, name: user.name };
       },
     }),
   ],
-  adapter: SupabaseAdapter({
-    url: process.env.SUPABASE_URL!,
-    secret: process.env.SUPABASE_SERVICE_ROLE_KEY!, // ✅ Service Role Key (Used in Backend Only)
-  }),
-  session: { strategy: "jwt" as SessionStrategy },
+  callbacks: {
+    async session({ session, token }) {
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.sub || null,
+          name: session.user?.name || null,
+          email: session.user?.email || null,
+          image: session.user?.image || null,
+        }
+      } as Session;
+    }
+  },
+  session: {
+    strategy: "jwt"
+  },
   secret: process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: '/auth/signin',
+  },
 };
 
-export const handler = NextAuth(authOptions);
+const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

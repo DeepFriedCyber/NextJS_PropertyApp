@@ -2,8 +2,15 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ["your-supabase-storage-url.com", "cloudinary.com"], // Add your image hosts
+    domains: ['firebasestorage.googleapis.com'],
   },
-};
+  webpack: (config, { dev, isServer }) => {
+    config.module.rules.push({
+      test: /\.(svg|png|jpg|jpeg|gif|ico)$/,
+      use: ['@svgr/webpack', 'url-loader'],
+    });
+    return config;
+  },
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig

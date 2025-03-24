@@ -1,39 +1,69 @@
-"use client";
+'use client';
+
 import React, { useState } from "react";
-import { signIn } from "next-auth/react";
+import { auth } from "@/lib/firebaseClient";
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword 
+} from "firebase/auth";
 
 export default function AuthForm({ type }: { type: "login" | "register" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleAuth = async () => {
-    if (type === "register") {
-      await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      alert("Account created! Please log in.");
-    } else {
-      const res = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-      if (res?.error) alert(res.error);
-      else window.location.href = "/";
+    try {
+      if (type === "register") {
+        await createUserWithEmailAndPassword(auth, email, password);
+        alert("Account created successfully!");
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+        window.location.href = "/";
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="p-4 border">
-      <h2 className="text-lg font-bold">{type === "register" ? "Sign Up" : "Log In"}</h2>
-      <input type="email" placeholder="Email" onChange={(e) => setEmail(e.target.value)} className="border p-2 w-full mt-2" />
-      <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} className="border p-2 w-full mt-2" />
-      <button onClick={handleAuth} className="bg-blue-500 text-white px-4 py-2 mt-4 w-full">
-        {type === "register" ? "Sign Up" : "Log In"}
-      </button>
+    <div className="max-w-md mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-4">
+        {type === "login" ? "Login" : "Create Account"}
+      </h2>
+      {error && <p className="text-red-500 mb-4">{error}</p>}
+      <form onSubmit={handleAuth} className="space-y-4">
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full p-2 border rounded"
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full p-2 border rounded"
+          required
+        />
+        <button
+          type="submit"
+          className="w-full bg-primary text-white py-2 rounded-md hover:bg-indigo-600 transition"
+          disabled={loading}
+        >
+          {loading ? "Processing..." : type === "login" ? "Login" : "Register"}
+        </button>
+      </form>
     </div>
   );
 }

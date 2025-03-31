@@ -1,0 +1,7 @@
+{
+  "databaseURL": "https://your-workspace.eu-west-1.xata.sh/db/your-database",
+  "codegen": {
+    "output": "lib/xata.ts"
+  }
+}
+

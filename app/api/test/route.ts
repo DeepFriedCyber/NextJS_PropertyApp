@@ -1,16 +1,12 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../lib/supabaseClient';
+import { NextResponse } from 'next/server';
+import { getXataClient } from '@/lib/xata';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export async function GET() {
   try {
-    const { data, error } = await supabase.from('properties').select('*');
-
-    if (error) {
-      throw error;
-    }
-
-    res.status(200).json(data);
+    const xata = getXataClient();
+    const data = await xata.db.properties.getMany();
+    return NextResponse.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { db, storage } from "@/lib/firebaseClient";
-import { collection, addDoc } from "firebase/firestore";
-import { uploadImage } from "@/utils/uploadImage";
+import { getXataClient } from "@/lib/xata";
 import { validateUKPostcode, lookupPostcode } from "@/utils/postcodeService";
 import { formatPrice, validatePrice } from '@/utils/priceUtils';
 import {
@@ -19,30 +17,50 @@ import {
   type EPCRating
 } from "@/types/uk-property";
 
+interface FormData {
+  title: string;
+  price: string;
+  postcode: string;
+  address: string;
+  description: string;
+  propertyType: PropertyType;
+  tenure: TenureType;
+  status: PropertyStatus;
+  bedrooms: string;
+  bathrooms: string;
+  squareFeet: string;
+  councilTaxBand: CouncilTaxBand;
+  epcRating: EPCRating;
+  features: string[];
+  imageUrl: string | null;
+}
+
 export default function UploadProperty() {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
+  const [formData, setFormData] = useState<FormData>({
+    title: '',
     price: '',
     postcode: '',
     address: '',
     description: '',
-    type: '' as PropertyType,
+    propertyType: '' as PropertyType,
     tenure: '' as TenureType,
     status: '' as PropertyStatus,
     bedrooms: '',
     bathrooms: '',
-    area: '',
+    squareFeet: '',
     councilTaxBand: '' as CouncilTaxBand,
     epcRating: '' as EPCRating,
-    features: [] as string[],
-    image: null as File | null
+    features: [],
+    imageUrl: null
   });
-
-  const [postcodeError, setPostcodeError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [postcodeError, setPostcodeError] = useState<string | null>(null);
 
   const handlePostcodeBlur = async () => {
-    if (!formData.postcode) return;
+    if (!formData.postcode) {
+      setPostcodeError(null);
+      return;
+    }
 
     try {
       if (!validateUKPostcode(formData.postcode)) {
@@ -50,14 +68,14 @@ export default function UploadProperty() {
         return;
       }
 
-      const result = await lookupPostcode(formData.postcode);
+      const postcodeData = await lookupPostcode(formData.postcode);
       setFormData(prev => ({
         ...prev,
-        address: `${prev.address}, ${result.town}, ${result.region}`
+        postcode: postcodeData.postcode // Use the formatted postcode
       }));
-      setPostcodeError('');
+      setPostcodeError(null);
     } catch (error) {
-      setPostcodeError(error.message);
+      setPostcodeError((error as Error).message);
     }
   };
 
@@ -66,58 +84,43 @@ export default function UploadProperty() {
     setLoading(true);
 
     try {
-      const price = parseFloat(formData.price);
-      if (!validatePrice(price, formData.status as PropertyStatus)) {
-        throw new Error('Invalid price for this property status');
-      }
-
-      if (!validateUKPostcode(formData.postcode)) {
-        throw new Error('Invalid UK postcode');
-      }
-
-      const imageUrl = formData.image ? await uploadImage(formData.image) : null;
-
-      if (!imageUrl) {
-        throw new Error('Image upload failed');
-      }
-
-      const propertyData = {
-        ...formData,
-        price: parseFloat(formData.price),
+      const xata = getXataClient();
+      await xata.db.properties.create({
+        title: formData.title,
+        price: parseInt(formData.price),
+        location: formData.postcode,
+        description: formData.description,
+        propertyType: formData.propertyType,
+        tenure: formData.tenure,
         bedrooms: parseInt(formData.bedrooms),
         bathrooms: parseInt(formData.bathrooms),
-        area: parseFloat(formData.area),
-        imageUrl,
-        createdAt: new Date().toISOString(),
-        location: `${formData.address}, ${formData.postcode}`
-      };
+        squareFeet: parseInt(formData.squareFeet),
+        features: formData.features,
+        imageUrl: formData.imageUrl
+      });
 
-      const propertiesRef = collection(db, 'properties');
-      await addDoc(propertiesRef, propertyData);
-
-      // Reset form
       setFormData({
-        name: '',
+        title: '',
         price: '',
         postcode: '',
         address: '',
         description: '',
-        type: '' as PropertyType,
+        propertyType: '' as PropertyType,
         tenure: '' as TenureType,
         status: '' as PropertyStatus,
         bedrooms: '',
         bathrooms: '',
-        area: '',
+        squareFeet: '',
         councilTaxBand: '' as CouncilTaxBand,
         epcRating: '' as EPCRating,
         features: [],
-        image: null
+        imageUrl: null
       });
 
       alert('Property listed successfully!');
     } catch (error) {
       console.error('Error adding property:', error);
-      alert(error.message);
+      alert((error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -130,8 +133,8 @@ export default function UploadProperty() {
           <label className="block mb-2">Property Name/Title</label>
           <input
             type="text"
-            value={formData.name}
-            onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+            value={formData.title}
+            onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
             className="w-full p-2 border rounded"
             required
           />
@@ -175,8 +178,8 @@ export default function UploadProperty() {
         <div>
           <label className="block mb-2">Property Type</label>
           <select
-            value={formData.type}
-            onChange={e => setFormData(prev => ({ ...prev, type: e.target.value as PropertyType }))}
+            value={formData.propertyType}
+            onChange={e => setFormData(prev => ({ ...prev, propertyType: e.target.value as PropertyType }))}
             className="w-full p-2 border rounded"
             required
           >
@@ -249,3 +252,5 @@ export default function UploadProperty() {
     </form>
   );
 }
+
+

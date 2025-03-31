@@ -1,18 +1,15 @@
-import './globals.css'
-import type { Metadata } from 'next'
-import { Inter, Poppins } from 'next/font/google'
+import './globals.css';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import Navbar from '@/components/Navbar';
+import Providers from '@/app/providers';
 
-const inter = Inter({ subsets: ['latin'] })
-const poppins = Poppins({ 
-  weight: ['400', '600', '700'],
-  subsets: ['latin'],
-  variable: '--font-poppins'
-})
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Property App',
-  description: 'Find your next home',
-}
+  description: 'Find your dream property',
+};
 
 export default function RootLayout({
   children,
@@ -20,10 +17,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${poppins.variable}`}>
-      <body className={`${inter.className} bg-background`}>
-        {children}
+    <html lang="en">
+      <body className={inter.className}>
+        <Providers>
+          <Navbar />
+          {children}
+        </Providers>
       </body>
     </html>
-  )
+  );
 }

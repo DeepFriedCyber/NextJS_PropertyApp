@@ -1,109 +1,174 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { db } from "@/lib/firebaseClient";
-import { collection, query, getDocs, orderBy, limit, startAfter, where, Query, DocumentData } from "firebase/firestore";
-import PropertyCard from "./PropertyCard";
-import { Property, PropertyFilters, SortOption } from "@/types/property";
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { getXataClient } from '@/lib/xata';
+import type { PropertiesRecord } from '@/lib/xata';
+import PropertyCard from './PropertyCard';
+import { PropertySort, type SortOption } from './PropertySort';
+import { debounce } from 'lodash';
+import type { Query, SelectedPick } from '@xata.io/client';
+
+// Define our own FilterExpression type based on how it's used in the code
+type FilterExpression<T> = {
+  [K in keyof T]?: { $gte?: any; $lte?: any; $contains?: string } | any;
+} | { $all: Array<any> };
+
+type PropertyFilters = {
+  minPrice?: number;
+  maxPrice?: number;
+  minBedrooms?: number;
+  type?: string;
+  status?: string;
+  tenure?: string;
+  location?: string;
+};
+
+const PROPERTIES_PER_PAGE = 9;
+const DEBOUNCE_DELAY = 500;
+
+// 🔁 Sort options mapped to fields
+const sortMap = {
+  'price-asc': { field: 'price' as const, direction: 'asc' as const },
+  'price-desc': { field: 'price' as const, direction: 'desc' as const },
+  'bedrooms-asc': { field: 'bedrooms' as const, direction: 'asc' as const },
+  'bedrooms-desc': { field: 'bedrooms' as const, direction: 'desc' as const },
+  // Use correct Xata system field name
+  'xata_createdat-asc': { field: 'xata.createdAt' as const, direction: 'asc' as const },
+  'xata_createdat-desc': { field: 'xata.createdAt' as const, direction: 'desc' as const },
+  // Map the date sort options to xata.createdAt field
+  'date-newest': { field: 'xata.createdAt' as const, direction: 'desc' as const },
+  'date-oldest': { field: 'xata.createdAt' as const, direction: 'asc' as const },
+  // Map the beds sort options to bedrooms field
+  'beds-asc': { field: 'bedrooms' as const, direction: 'asc' as const },
+  'beds-desc': { field: 'bedrooms' as const, direction: 'desc' as const },
+  // Map the size sort options to squareFeet field
+  'size-asc': { field: 'squareFeet' as const, direction: 'asc' as const },
+  'size-desc': { field: 'squareFeet' as const, direction: 'desc' as const }
+} as const;
+
+// Add type for the sort field
+type SortField = (typeof sortMap)[keyof typeof sortMap]['field'];
 
 export default function PropertyList() {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [properties, setProperties] = useState<PropertiesRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<SortOption>('date-newest');
   const [filters, setFilters] = useState<PropertyFilters>({});
-  const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
-  const propertiesPerPage = 9;
+  const [sortOption, setSortOption] = useState<SortOption>('price-desc');
+  const [priceError, setPriceError] = useState<string | null>(null);
 
-  const buildQuery = () => {
-    let q = collection(db, "properties");
-    const queryConstraints = [];
-
-    // Sorting
-    switch (sortBy) {
-      case 'price-asc':
-        queryConstraints.push(orderBy('price', 'asc'));
-        break;
-      case 'price-desc':
-        queryConstraints.push(orderBy('price', 'desc'));
-        break;
-      case 'date-newest':
-        queryConstraints.push(orderBy('createdAt', 'desc'));
-        break;
-      case 'date-oldest':
-        queryConstraints.push(orderBy('createdAt', 'asc'));
-        break;
+  const validatePriceRange = (min?: number, max?: number): boolean => {
+    if (min && max && min > max) {
+      setPriceError('Minimum price cannot be greater than maximum price');
+      return false;
     }
-
-    // Filters
-    if (filters.type) {
-      queryConstraints.push(where('type', '==', filters.type));
-    }
-    if (filters.status) {
-      queryConstraints.push(where('status', '==', filters.status));
-    }
-    if (filters.minPrice) {
-      queryConstraints.push(where('price', '>=', filters.minPrice));
-    }
-    if (filters.maxPrice) {
-      queryConstraints.push(where('price', '<=', filters.maxPrice));
-    }
-    if (filters.minBedrooms) {
-      queryConstraints.push(where('bedrooms', '>=', filters.minBedrooms));
-    }
-    if (filters.location) {
-      queryConstraints.push(where('location', '==', filters.location));
-    }
-
-    // Pagination
-    queryConstraints.push(limit(propertiesPerPage));
-    if (lastVisible) {
-      queryConstraints.push(startAfter(lastVisible));
-    }
-
-    return query(q, ...queryConstraints);
+    setPriceError(null);
+    return true;
   };
 
-  const fetchProperties = async (resetPagination = false) => {
-    if (resetPagination) {
-      setLastVisible(null);
-      setProperties([]);
+  const buildFilterQuery = useCallback((
+    xata: ReturnType<typeof getXataClient>,
+    filters: PropertyFilters,
+    currentSortOption: SortOption
+  ) => {
+    // Create an array of filter expressions
+    const filterExpressions: FilterExpression<PropertiesRecord>[] = [];
+
+    if (filters.minPrice !== undefined) {
+      filterExpressions.push({ price: { $gte: filters.minPrice } });
+    }
+    if (filters.maxPrice !== undefined) {
+      filterExpressions.push({ price: { $lte: filters.maxPrice } });
+    }
+    if (filters.minBedrooms !== undefined) {
+      filterExpressions.push({ bedrooms: { $gte: filters.minBedrooms } });
+    }
+    if (filters.type) {
+      filterExpressions.push({ propertyType: filters.type });
+    }
+    if (filters.status) {
+      filterExpressions.push({ status: filters.status });
+    }
+    if (filters.tenure) {
+      filterExpressions.push({ tenure: filters.tenure });
+    }
+    if (filters.location) {
+      filterExpressions.push({ location: { $contains: filters.location } });
     }
 
-    setLoading(true);
-    setError(null);
+    // Apply all filters at once
+    let query: Query<PropertiesRecord> = xata.db.properties;
+    if (filterExpressions.length > 0) {
+      query = query.filter({ $all: filterExpressions });
+    }
 
+    const sort = sortMap[currentSortOption] ?? sortMap['price-desc'];
+    return query.sort(sort.field, sort.direction);
+  }, []);
+
+  const fetchProperties = useCallback(async (reset = false) => {
     try {
-      const propertyQuery = buildQuery();
-      const querySnapshot = await getDocs(propertyQuery);
-      
-      const propertiesData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Property[];
+      if (!validatePriceRange(filters.minPrice, filters.maxPrice)) {
+        setProperties([]);
+        return;
+      }
 
-      setProperties(prev => resetPagination ? propertiesData : [...prev, ...propertiesData]);
-      setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
-    } catch (err) {
-      console.error("Error fetching properties:", err);
-      setError("Failed to load properties");
+      setLoading(true);
+      setError(null);
+
+      const xata = getXataClient();
+      const query = buildFilterQuery(xata, filters, sortOption);
+
+      // Add console.log to debug the query
+      console.log('Fetching properties with query:', query);
+
+      const results = await query.getPaginated({
+        pagination: {
+          size: PROPERTIES_PER_PAGE,
+          offset: reset ? 0 : properties.length
+        }
+      });
+
+      // Add console.log to see the results
+      console.log('Fetched properties:', results.records);
+
+      setProperties(prev => (reset ? results.records : [...prev, ...results.records]));
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+      setError('Failed to load properties. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, sortOption, properties.length, buildFilterQuery, validatePriceRange]);
 
+  const debouncedFetch = useMemo(
+    () => debounce((reset: boolean) => fetchProperties(reset), DEBOUNCE_DELAY),
+    [fetchProperties]
+  );
+
+  // Initial fetch on component mount
   useEffect(() => {
     fetchProperties(true);
-  }, [sortBy, filters]);
+  }, []); // Empty dependency array for initial load
+
+  // Fetch when filters or sort change
+  useEffect(() => {
+    debouncedFetch(true);
+    return () => debouncedFetch.cancel();
+  }, [filters, sortOption, debouncedFetch]);
+
+  const handleFilterChange = useCallback((key: keyof PropertyFilters, value: string | number | undefined) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto p-6">
       {/* Filters */}
       <div className="mb-8 bg-white rounded-lg shadow p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <select
-            value={filters.type}
-            onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value as Property['type'] }))}
+            value={filters.type || ''}
+            onChange={(e) => handleFilterChange('type', e.target.value || undefined)}
             className="p-2 border rounded-lg"
           >
             <option value="">All Property Types</option>
@@ -118,8 +183,8 @@ export default function PropertyList() {
           </select>
 
           <select
-            value={filters.status}
-            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as Property['status'] }))}
+            value={filters.status || ''}
+            onChange={(e) => handleFilterChange('status', e.target.value || undefined)}
             className="p-2 border rounded-lg"
           >
             <option value="">All Status</option>
@@ -131,8 +196,8 @@ export default function PropertyList() {
           </select>
 
           <select
-            value={filters.tenure}
-            onChange={(e) => setFilters(prev => ({ ...prev, tenure: e.target.value as Property['tenure'] }))}
+            value={filters.tenure || ''}
+            onChange={(e) => handleFilterChange('tenure', e.target.value || undefined)}
             className="p-2 border rounded-lg"
           >
             <option value="">All Tenures</option>
@@ -140,32 +205,46 @@ export default function PropertyList() {
             <option value="leasehold">Leasehold</option>
             <option value="share-of-freehold">Share of Freehold</option>
           </select>
+
+          <PropertySort onSort={setSortOption} currentSort={sortOption} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-          <input
-            type="number"
-            placeholder="Min Price (£)"
-            onChange={(e) => setFilters(prev => ({ ...prev, minPrice: Number(e.target.value) }))}
-            className="p-2 border rounded-lg"
-          />
+          <div>
+            <input
+              type="number"
+              placeholder="Min Price (£)"
+              onChange={(e) =>
+                handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)
+              }
+              className={`p-2 border rounded-lg w-full ${priceError ? 'border-red-500' : ''}`}
+              min="0"
+            />
+            {priceError && <p className="text-red-500 text-sm mt-1">{priceError}</p>}
+          </div>
           <input
             type="number"
             placeholder="Max Price (£)"
-            onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: Number(e.target.value) }))}
-            className="p-2 border rounded-lg"
+            onChange={(e) =>
+              handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)
+            }
+            className="p-2 border rounded-lg w-full"
+            min="0"
           />
           <input
             type="number"
             placeholder="Min Bedrooms"
-            onChange={(e) => setFilters(prev => ({ ...prev, minBedrooms: Number(e.target.value) }))}
-            className="p-2 border rounded-lg"
+            onChange={(e) =>
+              handleFilterChange('minBedrooms', e.target.value ? Number(e.target.value) : undefined)
+            }
+            className="p-2 border rounded-lg w-full"
+            min="0"
           />
           <input
             type="text"
             placeholder="Location"
-            onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
-            className="p-2 border rounded-lg"
+            onChange={(e) => handleFilterChange('location', e.target.value || undefined)}
+            className="p-2 border rounded-lg w-full"
           />
         </div>
       </div>
@@ -185,7 +264,7 @@ export default function PropertyList() {
             ))}
           </div>
 
-          {properties.length >= propertiesPerPage && (
+          {properties.length >= PROPERTIES_PER_PAGE && (
             <div className="text-center mt-8">
               <button
                 onClick={() => fetchProperties()}
@@ -211,12 +290,20 @@ export default function PropertyList() {
         </div>
       )}
 
-      {!loading && properties.length === 0 && (
-        <p className="text-center text-gray-500 py-8">No properties found matching your criteria.</p>
+      {!loading && properties.length === 0 && !error && (
+        <p className="text-center text-gray-500 py-8">
+          No properties found matching your criteria.
+        </p>
       )}
     </div>
   );
 }
+
+
+
+
+
+
 
 
 

@@ -1,85 +1,100 @@
-import NextAuth from "next-auth/next";
-import type { NextAuthOptions, Session as NextAuthSession } from "next-auth";
-import type { JWT } from "next-auth/jwt";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { auth } from "@/lib/firebaseClient";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import NextAuth from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import { compare } from 'bcryptjs';
+import { getXataClient } from '@/lib/xata';
+import type { User } from 'next-auth';
+import type { UserType } from '@/types/auth';
 
-// Define a more specific user type
-interface CustomUser {
-  id: string | null;
-  name: string | null;
-  email: string | null;
-  image: string | null;
-}
-
-// Define a more specific session type
-interface Session extends NextAuthSession {
-  user: CustomUser;
-}
-
-export const authOptions: NextAuthOptions = {
+const handler = NextAuth({
   providers: [
     CredentialsProvider({
-      name: "Credentials",
+      name: 'Credentials',
       credentials: {
-        email: { label: "Email", type: "text", placeholder: "you@example.com" },
+        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials, req): Promise<any> {
+      async authorize(credentials, req): Promise<User | null> {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Missing email or password");
+          throw new Error('Missing credentials');
         }
 
-        try {
-          const userCredential = await signInWithEmailAndPassword(
-            auth,
-            credentials.email,
-            credentials.password
-          );
-          
-          const user = userCredential.user;
+        const xata = getXataClient();
+        const user = await xata.db.users.filter({ email: credentials.email }).getFirst();
 
-          if (!user) {
-            throw new Error("No user found");
-          }
+        if (!user || !user.password) {
+          throw new Error('No user found');
+        }
 
-          // Return the user object that NextAuth expects
+        const isPasswordValid = await compare(credentials.password, user.password);
+
+        if (!isPasswordValid) {
+          throw new Error('Invalid password');
+        }
+
+        // Ensure verificationStatus is of the correct type
+        const verificationStatus = user.verificationStatus as 'pending' | 'verified' | 'rejected' | undefined;
+
+        // Return a properly typed User object
+        const baseUser = {
+          id: user.id,
+          email: user.email || '',
+          userType: user.userType as UserType,
+        };
+
+        if (user.userType === 'agent') {
           return {
-            id: user.uid,
-            email: user.email,
-            name: user.displayName,
-            image: user.photoURL
+            ...baseUser,
+            userType: 'agent' as const,
+            companyName: user.companyName || '',
+            verificationStatus: verificationStatus || 'pending',
           };
-        } catch (error) {
-          console.error("Authentication error:", error);
-          throw new Error(error instanceof Error ? error.message : "Authentication failed");
+        } else {
+          return {
+            ...baseUser,
+            userType: 'individual' as const,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+          };
         }
-      },
-    }),
+      }
+    })
   ],
+  session: {
+    strategy: 'jwt'
+  },
   callbacks: {
-    async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.sub || null,
-          name: session.user?.name || null,
-          email: session.user?.email || null,
-          image: session.user?.image || null,
+    async jwt({ token, user }) {
+      if (user) {
+        token.userType = user.userType;
+        if (user.userType === 'agent') {
+          token.companyName = user.companyName;
+          token.verificationStatus = user.verificationStatus;
+        } else {
+          token.firstName = user.firstName;
+          token.lastName = user.lastName;
         }
-      } as Session;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.userType = token.userType;
+        if (token.userType === 'agent') {
+          session.user.companyName = token.companyName;
+          session.user.verificationStatus = token.verificationStatus;
+        } else {
+          session.user.firstName = token.firstName;
+          session.user.lastName = token.lastName;
+        }
+      }
+      return session;
     }
   },
-  session: {
-    strategy: "jwt"
-  },
-  secret: process.env.NEXTAUTH_SECRET,
   pages: {
-    signIn: '/auth/signin',
-  },
-};
+    signIn: '/auth/login',
+    error: '/auth/error',
+  }
+});
 
-const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
+

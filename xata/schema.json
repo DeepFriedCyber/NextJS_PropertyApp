@@ -1,0 +1,60 @@
+{
+  "tables": [
+    {
+      "name": "users",
+      "columns": [
+        {
+          "name": "email",
+          "type": "email",
+          "unique": true
+        },
+        {
+          "name": "password",
+          "type": "string"
+        },
+        {
+          "name": "userType",
+          "type": "string"
+        },
+        {
+          "name": "firstName",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "lastName",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "companyName",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "licenseNumber",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "agencyName",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "verificationStatus",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "createdAt",
+          "type": "datetime"
+        },
+        {
+          "name": "updatedAt",
+          "type": "datetime"
+        }
+      ]
+    }
+  ]
+}

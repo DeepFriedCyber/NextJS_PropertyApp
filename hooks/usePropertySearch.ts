@@ -1,114 +1,78 @@
-import { useState, useCallback, useEffect } from 'react';
-import { useDebounce } from '@/hooks/useDebounce';
-import { validateSearchFilters } from '@/utils/searchValidation';
-import { SearchFilters } from '@/types/search';
-import { Property } from '@/types/property';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebaseClient';
+'use client';
 
-const DEFAULT_FILTERS: SearchFilters = {
-  propertyTypes: [],
-  status: 'for-sale',
-  features: [],
-  sortBy: 'price-asc'
+import { useState, useEffect } from 'react';
+import { getXataClient } from '@/lib/xata';
+import type { PropertiesRecord } from '@/lib/xata';
+import { SearchOptions, BaseData } from '@xata.io/client';
+
+// Define the return type for our hook
+interface UsePropertySearchReturn {
+  query: string;
+  setQuery: (query: string) => void;
+  results: PropertiesRecord[];
+  loading: boolean;
+}
+
+// Configuration constants
+const DEBOUNCE_DELAY = 400;
+
+const SEARCH_CONFIG: SearchOptions<Record<string, BaseData>, string> = {
+  fuzziness: 1,
+  highlight: {
+    enabled: true
+  }
 };
 
-export const usePropertySearch = () => {
-  const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
-  const [location, setLocation] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState<Property[]>([]);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const ITEMS_PER_PAGE = 20;
+/**
+ * Custom hook for property search functionality
+ * Provides debounced search against Xata database
+ */
+export function usePropertySearch(): UsePropertySearchReturn {
+  // State management
+  const [query, setQuery] = useState<string>('');
+  const [results, setResults] = useState<PropertiesRecord[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const debouncedLocation = useDebounce(location, 500);
-  const debouncedFilters = useDebounce(filters, 500);
-
-  const updateFilter = useCallback(<K extends keyof SearchFilters>(
-    key: K,
-    value: SearchFilters[K]
-  ) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  }, []);
-
-  const resetFilters = useCallback(() => {
-    setFilters(DEFAULT_FILTERS);
-    setLocation('');
-  }, []);
-
-  const loadMore = async () => {
-    if (!hasMore || isSearching) return;
-    
-    setPage(prev => prev + 1);
-    await performSearch(false);
-  };
-
-  const performSearch = useCallback(async (resetResults = true) => {
-    const validation = validateSearchFilters(filters);
-    
-    if (!validation.isValid) {
-      setErrors(validation.errors);
-      return;
-    }
-
-    setIsSearching(true);
-    setErrors([]);
-
-    try {
-      let q = query(collection(db, 'properties'));
-
-      // Add filters
-      if (filters.propertyTypes.length > 0) {
-        q = query(q, where('type', 'in', filters.propertyTypes));
-      }
-      
-      if (filters.status) {
-        q = query(q, where('status', '==', filters.status));
-      }
-
-      // Add sorting
-      const [sortField, sortDirection] = filters.sortBy.split('-');
-      q = query(q, orderBy(sortField, sortDirection as 'asc' | 'desc'));
-
-      // Add pagination
-      q = query(q, limit(ITEMS_PER_PAGE * page));
-
-      const querySnapshot = await getDocs(q);
-      const properties = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Property[];
-
-      setHasMore(properties.length === ITEMS_PER_PAGE * page);
-      setResults(prev => resetResults ? properties : [...prev, ...properties]);
-    } catch (error) {
-      console.error('Search error:', error);
-      setErrors(['Search failed. Please try again.']);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [filters, debouncedLocation, page]);
-
+  // Effect for debounced search
   useEffect(() => {
-    performSearch();
-  }, [debouncedFilters, debouncedLocation, performSearch]);
+    // Don't search if query is empty
+    if (!query.trim()) {
+      setResults([]);
+      return () => {}; // Empty cleanup function
+    }
 
+    // Set loading state
+    setLoading(true);
+
+    // Create timeout for debounce
+    const timeoutId = setTimeout(async () => {
+      try {
+        // Get Xata client and perform search
+        const xata = getXataClient();
+        const searchResults = await xata.db.properties.search(
+          query.trim(),
+          SEARCH_CONFIG
+        );
+
+        // Update results
+        setResults(searchResults.records);
+      } catch (error) {
+        console.error('Search error:', error);
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, DEBOUNCE_DELAY);
+
+    // Cleanup function to clear timeout
+    return () => clearTimeout(timeoutId);
+  }, [query]); // Only re-run when query changes
+
+  // Return the hook interface
   return {
-    filters,
-    location,
+    query,
+    setQuery,
     results,
-    errors,
-    isSearching,
-    updateFilter,
-    setLocation,
-    resetFilters,
-    performSearch,
-    hasMore,
-    loadMore
+    loading
   };
-};
-
-
-
+}

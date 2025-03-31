@@ -1,78 +1,79 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { getXataClient } from '@/lib/xata';
+import { useState } from 'react';
 import type { PropertiesRecord } from '@/lib/xata';
-import { SearchOptions, BaseData } from '@xata.io/client';
 
-// Define the return type for our hook
-interface UsePropertySearchReturn {
-  query: string;
-  setQuery: (query: string) => void;
-  results: PropertiesRecord[];
-  loading: boolean;
-}
+export function usePropertySearch() {
+  const [searchState, setSearchState] = useState({
+    mode: 'semantic' as 'semantic' | 'filter',
+    results: [] as PropertiesRecord[],
+    isLoading: false,
+  });
 
-// Configuration constants
-const DEBOUNCE_DELAY = 400;
+  const semanticSearch = async (query: string) => {
+    try {
+      setSearchState(prev => ({ ...prev, isLoading: true }));
+      
+      const response = await fetch('/api/properties/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          mode: 'semantic'
+        }),
+      });
 
-const SEARCH_CONFIG: SearchOptions<Record<string, BaseData>, string> = {
-  fuzziness: 1,
-  highlight: {
-    enabled: true
-  }
-};
-
-/**
- * Custom hook for property search functionality
- * Provides debounced search against Xata database
- */
-export function usePropertySearch(): UsePropertySearchReturn {
-  // State management
-  const [query, setQuery] = useState<string>('');
-  const [results, setResults] = useState<PropertiesRecord[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-
-  // Effect for debounced search
-  useEffect(() => {
-    // Don't search if query is empty
-    if (!query.trim()) {
-      setResults([]);
-      return () => {}; // Empty cleanup function
+      if (!response.ok) throw new Error('Search failed');
+      
+      const data = await response.json();
+      setSearchState(prev => ({
+        ...prev,
+        results: data.results,
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchState(prev => ({ ...prev, isLoading: false }));
     }
+  };
 
-    // Set loading state
-    setLoading(true);
+  const filterSearch = async (filters: any) => {
+    try {
+      setSearchState(prev => ({ ...prev, isLoading: true }));
+      
+      const response = await fetch('/api/properties/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filters,
+          mode: 'filter'
+        }),
+      });
 
-    // Create timeout for debounce
-    const timeoutId = setTimeout(async () => {
-      try {
-        // Get Xata client and perform search
-        const xata = getXataClient();
-        const searchResults = await xata.db.properties.search(
-          query.trim(),
-          SEARCH_CONFIG
-        );
+      if (!response.ok) throw new Error('Search failed');
+      
+      const data = await response.json();
+      setSearchState(prev => ({
+        ...prev,
+        results: data.results,
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchState(prev => ({ ...prev, isLoading: false }));
+    }
+  };
 
-        // Update results
-        setResults(searchResults.records);
-      } catch (error) {
-        console.error('Search error:', error);
-        setResults([]);
-      } finally {
-        setLoading(false);
-      }
-    }, DEBOUNCE_DELAY);
+  const setSearchMode = (mode: 'semantic' | 'filter') => {
+    setSearchState(prev => ({ ...prev, mode }));
+  };
 
-    // Cleanup function to clear timeout
-    return () => clearTimeout(timeoutId);
-  }, [query]); // Only re-run when query changes
-
-  // Return the hook interface
   return {
-    query,
-    setQuery,
-    results,
-    loading
+    searchState,
+    semanticSearch,
+    filterSearch,
+    setSearchMode,
   };
 }

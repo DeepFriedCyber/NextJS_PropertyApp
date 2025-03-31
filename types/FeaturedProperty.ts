@@ -3,8 +3,13 @@
   export interface FeaturedProperty {
     id: string;
     title: string;
-    location: string;
+    description?: string;
     price: number;
-    imageUrl?: string;
+    location: string;
+    imageUrl: string;
+    bedrooms?: number;
+    bathrooms?: number;
+    propertyType?: string;
+    status: 'for-sale' | 'for-rent' | 'sold' | 'let-agreed';
   }
   

@@ -1,6 +1,8 @@
 import { PropertyStatus } from '@/types/uk-property';
 
-export const formatPrice = (price: number, status: PropertyStatus): string => {
+export const formatPrice = (price: number | null | undefined, status: PropertyStatus): string => {
+  if (!price) return '£0';
+
   const formatter = new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: 'GBP',

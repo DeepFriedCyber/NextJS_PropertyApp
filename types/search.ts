@@ -1,5 +1,6 @@
 import { PropertyStatus } from './uk-property';
 import { Property } from './property';
+import { PropertiesRecord } from '@/lib/xata';
 
 export type SortOption = 
   | 'price-asc'
@@ -11,22 +12,21 @@ export type SortOption =
   | 'size-asc'
   | 'size-desc';
 
+export type SearchMode = 'semantic' | 'filter';
+
 export interface SearchFilters {
-  minPrice?: number;
-  maxPrice?: number;
-  minBedrooms?: number;
-  maxBedrooms?: number;
-  propertyTypes: string[];
-  status: PropertyStatus;
-  features: string[];
-  sortBy: SortOption;
-  radius?: number;
-  location?: string;
+  priceRange: [number, number];
+  bedrooms: number[];
+  propertyType: string[];
+  location: string;
+  radius: number; // in miles
 }
 
-export interface SearchResults {
-  properties: Property[];
-  total: number;
-  page: number;
-  pageSize: number;
+export interface SearchState {
+  mode: SearchMode;
+  query: string;
+  filters: SearchFilters;
+  results: PropertiesRecord[];
+  isLoading: boolean;
 }
+

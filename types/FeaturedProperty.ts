@@ -1,15 +1,19 @@
 // types/FeaturedProperty.ts
 
-  export interface FeaturedProperty {
-    id: string;
-    title: string;
-    description?: string;
-    price: number;
-    location: string;
-    imageUrl: string;
-    bedrooms?: number;
-    bathrooms?: number;
-    propertyType?: string;
-    status: 'for-sale' | 'for-rent' | 'sold' | 'let-agreed';
-  }
-  
+export interface FeaturedProperty {
+  id: string;
+  title: string;
+  price: number;
+  location: string;
+  description: string;
+  bedrooms: number;
+  bathrooms: number;
+  propertyType: string;
+  status: string;
+  imageUrl: string;
+  squareFeet: number;
+  listingAgent: string;
+  createdAt: string;
+  isFeatured: boolean;
+  isForSale: boolean;
+}  

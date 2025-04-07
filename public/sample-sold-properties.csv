@@ -1,0 +1,11 @@
+address,postcode,price,saleDate,propertyType,tenure,bedrooms,bathrooms,squareFeet,description,location,town,district,county
+"42 Park Avenue, Highfield",SW19 4EF,425000,2023-06-15,detached,freehold,3,2,1450,"Beautifully presented detached family home with garden and garage","Highfield, Wimbledon",London,Merton,Greater London
+"15 Oakwood Drive",M20 3JL,320000,2023-05-22,semi-detached,freehold,3,1,1200,"Charming semi-detached property in a quiet residential area","Didsbury",Manchester,Manchester,Greater Manchester
+"Flat 7, Victoria Court, 12 Queen Street",BS1 4XZ,210000,2023-07-03,flat,leasehold,2,1,850,"Modern apartment in the heart of the city center with balcony","City Centre",Bristol,Bristol,Bristol
+"8 Riverside Cottages, Mill Lane",YO1 6DP,295000,2023-04-18,cottage,freehold,2,1,950,"Picturesque cottage with original features and river views","Riverside",York,York,North Yorkshire
+"27 Beech Road",B13 8PQ,275000,2023-08-01,terraced,freehold,3,1,1100,"Victorian terraced house with period features and garden","Moseley",Birmingham,Birmingham,West Midlands
+"The Old Barn, Church Lane",GL54 2HN,550000,2023-03-12,detached,freehold,4,3,2200,"Converted barn with stunning countryside views","Stow-on-the-Wold",Cheltenham,Cotswold,Gloucestershire
+"Flat 12, Harbour Heights, Marine Drive",BN2 5TL,325000,2023-07-25,flat,share-of-freehold,2,2,950,"Seafront apartment with panoramic views","Kemptown",Brighton,Brighton and Hove,East Sussex
+"5 Railway Cottages",SA3 4PQ,260000,2023-05-10,terraced,freehold,2,1,900,"Charming coastal cottage within walking distance to the beach","Mumbles",Swansea,Swansea,West Glamorgan
+"42 Highfield Avenue",NG7 1PD,230000,2023-06-30,semi-detached,freehold,3,1,1050,"Family home close to university and local amenities","Lenton",Nottingham,Nottingham,Nottinghamshire
+"The Coach House, Manor Farm",OX29 8JT,495000,2023-04-05,detached,freehold,3,2,1800,"Converted coach house with character features and large garden","Eynsham",Oxford,West Oxfordshire,Oxfordshire

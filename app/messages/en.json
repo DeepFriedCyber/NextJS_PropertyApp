@@ -1,0 +1,17 @@
+{
+  "PropertyCard": {
+    "bedrooms": "{count} {count, plural, one {bedroom} other {bedrooms}}",
+    "bathrooms": "{count} {count, plural, one {bathroom} other {bathrooms}}",
+    "squareFeet": "{count} sq ft",
+    "viewDetails": "View Details",
+    "addToCompare": "Add to Compare",
+    "removeFromCompare": "Remove from Compare",
+    "addToFavorites": "Add to Favorites",
+    "removeFromFavorites": "Remove from Favorites",
+    "compareLimit": "You can only compare up to 4 properties at a time",
+    "error": {
+      "title": "Error Loading Property",
+      "message": "We couldn't load this property. Please try again later."
+    }
+  }
+} 

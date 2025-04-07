@@ -1,0 +1,1 @@
+export function getEmbedding(text: string): Promise<number[]>; 

@@ -1,30 +1,36 @@
+import { PropertiesRecord } from '@/lib/xata';
+import { FeaturedProperty } from '@/types/FeaturedProperty';
+
 export interface Property {
   id: string;
-  name: string;
+  title: string;
   price: number;
   location: string;
-  imageUrl: string;
   description: string;
-  type: 'detached' | 'semi-detached' | 'terraced' | 'flat' | 'bungalow' | 'cottage' | 'maisonette' | 'commercial';
-  features: string[];
   bedrooms: number;
   bathrooms: number;
-  area: number; // in square metres
-  status: 'for-sale' | 'for-rent' | 'under-offer' | 'sold' | 'let-agreed';
-  tenure: 'freehold' | 'leasehold' | 'share-of-freehold';
-  councilTaxBand?: string;
-  epcRating?: string;
+  propertyType: string;
+  status: string;
+  imageUrl: string;
+  squareFeet: number;
+  listingAgent: string;
   createdAt: string;
+  isFeatured: boolean;
+  isForSale: boolean;
 }
+
+export type PropertyUnion = (PropertiesRecord & { _type: 'xata' }) | (FeaturedProperty & { _type: 'featured' });
+
+export const isXataProperty = (property: PropertyUnion): property is PropertiesRecord & { _type: 'xata' } => {
+  return property._type === 'xata';
+};
 
 export type SortOption = 'price-asc' | 'price-desc' | 'date-newest' | 'date-oldest';
 
 export interface PropertyFilters {
-  type?: Property['type'];
+  type?: string;
   minPrice?: number;
   maxPrice?: number;
   minBedrooms?: number;
-  status?: Property['status'];
-  location?: string;
-  tenure?: Property['tenure'];
+  status?: string;
 }

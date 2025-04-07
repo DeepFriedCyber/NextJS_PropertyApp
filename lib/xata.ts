@@ -219,7 +219,33 @@ export type Users = InferredTypes["users"];
 export type UsersRecord = Users & XataRecord;
 
 export type Properties = InferredTypes["properties"];
-export type PropertiesRecord = Properties & XataRecord;
+export interface PropertiesRecord extends XataRecord {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  location: string;
+  postcode: string;
+  bedrooms: number;
+  bathrooms: number;
+  property_type: string;
+  status: string;
+  image_url: string;
+  land_registry_id: string;
+  sale_date: string;
+  tenure_type: string;
+  property_age: string;
+  street_name: string;
+  town_city: string;
+  district: string;
+  county: string;
+  latitude?: number;
+  longitude?: number;
+  square_feet?: number;
+  listing_agent?: string;
+  created_at?: string;
+  is_featured?: boolean;
+}
 
 export type DatabaseSchema = {
   users: Repository<UsersRecord>;

@@ -4,9 +4,10 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { getXataClient } from '@/lib/xata';
 import type { PropertiesRecord } from '@/lib/xata';
 import PropertyCard from './PropertyCard';
-import { PropertySort, type SortOption } from './PropertySort';
+import { PropertySort } from './PropertySort';
 import { debounce } from 'lodash';
 import type { Query, SelectedPick } from '@xata.io/client';
+import type { SortOption } from '@/types/search';
 
 // Define our own FilterExpression type based on how it's used in the code
 type FilterExpression<T> = {
@@ -102,7 +103,8 @@ export default function PropertyList() {
       query = query.filter({ $all: filterExpressions });
     }
 
-    const sort = sortMap[currentSortOption] ?? sortMap['price-desc'];
+    // Use type assertion to ensure TypeScript knows currentSortOption is a valid key
+    const sort = sortMap[currentSortOption as keyof typeof sortMap] ?? sortMap['price-desc'];
     return query.sort(sort.field, sort.direction);
   }, []);
 

@@ -1,11 +1,25 @@
 // components/SearchBar.tsx
 'use client';
 
+import { useState, useEffect } from 'react';
 import { usePropertySearch } from '@/hooks/usePropertySearch';
 import Link from 'next/link';
 
 export default function SearchBar() {
-  const { query, setQuery, results, loading } = usePropertySearch();
+  const { searchState, semanticSearch } = usePropertySearch();
+  const [query, setQuery] = useState('');
+  const { results, isLoading } = searchState;
+
+  // Perform search when query changes
+  useEffect(() => {
+    if (query.trim()) {
+      const delaySearch = setTimeout(() => {
+        semanticSearch(query);
+      }, 300);
+
+      return () => clearTimeout(delaySearch);
+    }
+  }, [query, semanticSearch]);
 
   return (
     <div className="relative max-w-lg mx-auto">
@@ -17,7 +31,7 @@ export default function SearchBar() {
         placeholder="Search properties by title, location, or type..."
       />
 
-      {loading && (
+      {isLoading && (
         <div className="absolute left-0 right-0 mt-2 px-4 text-sm text-gray-500">Searching...</div>
       )}
 

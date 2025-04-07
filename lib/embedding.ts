@@ -1,11 +1,15 @@
 const OLLAMA_API_URL = process.env.NEXT_PUBLIC_OLLAMA_API_URL || 'http://localhost:11434';
 
-export async function getEmbedding(input: string): Promise<number[]> {
+export async function getEmbedding(text: string) {
+  // Add caching for embeddings
+  const cache = await redis.get(`embedding:${hash(text)}`);
+  if (cache) return JSON.parse(cache);
+
   const res = await fetch(`${OLLAMA_API_URL}/api/embeddings`, {
     method: 'POST',
     body: JSON.stringify({
       model: 'llama2',
-      prompt: input
+      prompt: text
     }),
     headers: {
       'Content-Type': 'application/json'
@@ -27,5 +31,7 @@ export async function getEmbedding(input: string): Promise<number[]> {
     return [...duplicatedEmbedding, ...new Array(1536 - duplicatedEmbedding.length).fill(0)];
   }
   
+  // Cache the result
+  await redis.set(`embedding:${hash(text)}`, JSON.stringify(duplicatedEmbedding));
   return duplicatedEmbedding;
 }

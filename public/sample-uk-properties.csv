@@ -1,0 +1,11 @@
+address,postcode,price,saleDate,propertyType,tenure,bedrooms,bathrooms,squareFeet,description,location,town,district,county
+123 High Street,SW1A 1AA,450000,2023-01-15,detached,freehold,4,2,1800,Beautiful detached house with garden,London,Westminster,Greater London,London
+45 Park Lane,M1 1AE,275000,2023-02-20,semi-detached,freehold,3,1,1200,Charming semi-detached property with modern kitchen,Manchester,Manchester City Centre,Greater Manchester,Manchester
+8 Queen's Road,B1 1BB,320000,2023-03-05,terraced,freehold,3,2,1100,Stylish terraced house in central location,Birmingham,Birmingham City Centre,West Midlands,Birmingham
+Flat 12 Victoria House,EH1 1AA,195000,2023-01-30,flat,leasehold,2,1,850,Modern apartment with great views,Edinburgh,Old Town,Edinburgh,Edinburgh
+27 Castle Street,CF10 1BS,225000,2023-02-10,terraced,freehold,3,1,950,Traditional Welsh terraced house with character features,Cardiff,Cardiff Central,Cardiff,Cardiff
+The Cottage Mill Lane,OX1 2JD,395000,2023-03-15,cottage,freehold,2,1,900,Picturesque cottage with original features and garden,Oxford,Oxford City Centre,Oxfordshire,Oxfordshire
+15 Harbour View,BT1 2DX,180000,2023-01-25,flat,leasehold,1,1,650,Modern waterfront apartment with balcony,Belfast,Belfast City Centre,Belfast,Belfast
+42 The Crescent,G1 2FF,310000,2023-02-28,terraced,freehold,3,2,1050,Elegant Georgian terraced house with period features,Glasgow,Glasgow City Centre,Glasgow,Glasgow
+Seaview Bungalow Cliff Road,BN1 3GH,420000,2023-03-10,bungalow,freehold,2,2,1100,Coastal bungalow with panoramic sea views,Brighton,Brighton,East Sussex,East Sussex
+5 Market Square,LS1 4JK,265000,2023-01-20,maisonette,share-of-freehold,2,1,950,Spacious maisonette above retail premises,Leeds,Leeds City Centre,West Yorkshire,West Yorkshire

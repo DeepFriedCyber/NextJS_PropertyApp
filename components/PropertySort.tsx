@@ -3,22 +3,24 @@
 import { Fragment } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
+// Import the SortOption type from types/search.ts
+import { SortOption } from '@/types/search';
 
 const sortOptions = [
   { label: 'Price: Low to High', value: 'price-asc' },
   { label: 'Price: High to Low', value: 'price-desc' },
-  { label: 'Most Recent', value: 'date-desc' },
-  { label: 'Most Popular', value: 'views-desc' },
-  { label: 'Best Match', value: 'relevance' },
+  { label: 'Most Recent', value: 'date-newest' },
+  { label: 'Most Popular', value: 'beds-desc' },
+  { label: 'Best Match', value: 'price-desc' },
   { label: 'Square Footage', value: 'size-desc' },
 ] as const;
 
-export function PropertySort({ 
-  onSort, 
-  currentSort 
-}: { 
-  onSort: (value: string) => void;
-  currentSort: string;
+export function PropertySort({
+  onSort,
+  currentSort
+}: {
+  onSort: (value: SortOption) => void;
+  currentSort: SortOption;
 }) {
   return (
     <Menu as="div" className="relative">
@@ -44,7 +46,7 @@ export function PropertySort({
               <Menu.Item key={option.value}>
                 {({ active }) => (
                   <button
-                    onClick={() => onSort(option.value)}
+                    onClick={() => onSort(option.value as SortOption)}
                     className={`
                       ${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'}
                       ${currentSort === option.value ? 'bg-primary-50 text-primary-600' : ''}
